@@ -1,0 +1,40 @@
+#cloud-config
+hostname: {{ vm_hostname }}
+users:
+  - name: {{ vm_additional_user }}
+    passwd: {{ vm_additional_user_password }}
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    groups:
+      - wheel
+      - sudo
+      - admin
+    shell: '/bin/bash'
+    lock_passwd: false
+    ssh_authorized_keys: {{ vm_authorized_ssh_keys }}
+chpasswd:
+  list: |
+    {{ vm_additional_user }}:{{ vm_additional_user_password }}
+  expire: false
+ssh_pwauth: true
+write_files:
+  - path: /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+    permissions: '0644'
+    content: |
+      network: {config: disabled}
+  - path: /etc/netplan/config.yaml
+    permissions: '0644'
+    content: |
+      network:
+        version: 2
+        ethernets:
+          ens192:
+            addresses:
+              - {{ vm_ip_address }}/{{ vm_prefix_length }}
+            gateway4: {{ vm_default_gateway }}
+            nameservers:
+              search: {{ vm_search_domains }}
+              addresses: {{ vm_dns_servers }}
+runcmd:
+  - rm /etc/netplan/50-cloud-init.yaml
+  - netplan generate
+  - netplan apply

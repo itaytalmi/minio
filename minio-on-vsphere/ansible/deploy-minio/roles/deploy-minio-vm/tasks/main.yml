@@ -1,0 +1,120 @@
+- name: Template VM User Data
+  ansible.builtin.set_fact:
+    ubuntu_vm_user_data: "{{ lookup('template', 'ubuntu-cloud-init.yaml.j2') | b64encode }}"
+
+- name: Download Ubuntu Cloud Image
+  ansible.builtin.get_url:
+    url: "{{ ubuntu_ova_download_url }}"
+    dest: "{{ ubuntu_ova_local_path }}"
+    force: "{{ ubuntu_ova_download_force }}"
+    timeout: "{{ ubuntu_ova_download_timeout_seconds }}"
+    mode: "0755"
+  delegate_to: localhost
+
+- name: Power Off and Delete VM (only used for redeployment)
+  when: redeploy_vm
+  block:
+    - name: Power Off VM (only used for redeployment)
+      community.vmware.vmware_guest_powerstate:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ vsphere_datecenter }}"
+        folder: "{{ vsphere_vm_folder }}"
+        name: "{{ vm_name }}"
+        state: powered-off
+        validate_certs: false
+      delegate_to: localhost
+
+    - name: Delete MinIO VM (only used for redeployment)
+      community.vmware.vmware_guest:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ vsphere_datecenter }}"
+        folder: "{{ vsphere_vm_folder }}"
+        name: "{{ vm_name }}"
+        state: absent
+        validate_certs: false
+      delegate_to: localhost
+
+- name: Deploy MinIO VM from Ubuntu Cloud Image
+  community.vmware.vmware_deploy_ovf:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ vsphere_datecenter }}"
+    cluster: "{{ vsphere_cluster }}"
+    resource_pool: "{{ vsphere_resource_pool }}"
+    datastore: "{{ vsphere_datastore }}"
+    disk_provisioning: "{{ vm_disk_provisioning }}"
+    folder: "{{ vsphere_vm_folder }}"
+    name: "{{ vm_name }}"
+    networks: "{u'VM Network':u'{{ vsphere_network }}'}"
+    power_on: false
+    ovf: "{{ ubuntu_ova_local_path }}"
+    properties:
+      password: "{{ ubuntu_vm_default_password }}"
+      public-keys: "{{ vm_authorized_ssh_keys | join(',') }}"
+      user-data: "{{ ubuntu_vm_user_data }}"
+    validate_certs: false
+  delegate_to: localhost
+
+- name: Configure VM Resources
+  community.vmware.vmware_guest:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ vsphere_datecenter }}"
+    folder: "{{ vsphere_vm_folder }}"
+    name: "{{ vm_name }}"
+    hardware:
+      memory_mb: "{{ vm_memory_mb }}"
+      num_cpus: "{{ vm_num_cpus }}"
+    disk:
+      - controller_number: 0
+        controller_type: paravirtual
+        unit_number: 0
+        type: "{{ vm_disk_provisioning }}"
+        size_gb: "{{ vm_os_disk_size_gb }}"
+      - controller_number: 0
+        controller_type: paravirtual
+        unit_number: 1
+        type: "{{ vm_disk_provisioning }}"
+        size_gb: "{{ minio_data_disk_size_gb }}"
+    validate_certs: false
+  delegate_to: localhost
+
+- name: Power on VM and wait for IP address
+  community.vmware.vmware_guest:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ vsphere_datecenter }}"
+    folder: "{{ vsphere_vm_folder }}"
+    name: "{{ vm_name }}"
+    state: poweredon
+    wait_for_ip_address: true
+    wait_for_ip_address_timeout: 600
+    validate_certs: false
+  delegate_to: localhost
+
+- name: Wait for VMware tools
+  community.vmware.vmware_guest_tools_wait:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ vsphere_datecenter }}"
+    folder: "{{ vsphere_vm_folder }}"
+    name: "{{ vm_name }}"
+    validate_certs: false
+  delegate_to: localhost
+
+- name: Remove MinIO VM IP address from known hosts if it exists (to ensure Ansible can successfully connect to it with a new thumbprint)
+  ansible.builtin.known_hosts:
+    name: "{{ vm_ip_address }}"
+    state: absent
+
+- name: Add Ansible host
+  ansible.builtin.add_host:
+    name: "{{ vm_ip_address }}"

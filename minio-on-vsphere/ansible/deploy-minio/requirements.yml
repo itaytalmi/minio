@@ -1,0 +1,6 @@
+---
+collections:
+  - name: community.vmware
+
+roles:
+  - name: ricsanfre.minio

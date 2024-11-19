@@ -1,0 +1,67 @@
+- name: Deploy MinIO
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - deploy-minio-vm
+  vars_files:
+    - vars.yml
+
+- name: Setup MinIO
+  hosts: all
+  gather_facts: true
+  become: true
+  remote_user: "{{ vm_additional_user }}"
+  pre_tasks:
+    - name: Wait for connection
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 600
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Create data storage directory filesystem
+      community.general.filesystem:
+        fstype: "{{ minio_server_data_filesystem_type }}"
+        dev: "{{ minio_server_data_filesystem_disk }}"
+
+    - name: Mount data storage directory filesystem
+      ansible.posix.mount:
+        path: "{{ minio_server_datadir }}"
+        src: "{{ minio_server_data_filesystem_disk }}"
+        fstype: "{{ minio_server_data_filesystem_type }}"
+        opts: defaults,noatime,nofail
+        state: mounted
+
+    - name: Create MinIO group
+      ansible.builtin.group:
+        name: "{{ minio_group }}"
+        state: present
+
+    - name: Create MinIO user
+      ansible.builtin.user:
+        name: "{{ minio_user }}"
+        group: "{{ minio_group }}"
+        system: true
+        shell: /usr/sbin/nologin
+
+    - name: Create the MinIO data storage directory and apply permissions
+      ansible.builtin.file:
+        path: "{{ minio_server_datadir }}"
+        state: directory
+        owner: "{{ minio_user }}"
+        group: "{{ minio_group }}"
+        recurse: true
+        mode: "0750"
+  roles:
+    - ricsanfre.minio
+  vars:
+    minio_server_make_datadirs: false
+    minio_server_datadirs:
+      - "{{ minio_server_datadir }}"
+    minio_pip_environment_vars:
+      PIP_BREAK_SYSTEM_PACKAGES: "1"
+  vars_files:
+    - vars.yml

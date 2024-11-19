@@ -1,0 +1,28 @@
+ubuntu_ova_download_url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.ova
+ubuntu_ova_local_path: "/tmp/{{ ubuntu_ova_download_url | split('/') | last }}"
+ubuntu_ova_download_force: false
+ubuntu_ova_download_timeout_seconds: 3600
+vsphere_resource_pool: Resources
+vm_disk_provisioning: thin
+vm_wait_for_ip_address: true
+vm_os_disk_size_gb: 50
+vm_num_cpus: 2
+vm_memory_mb: 8192
+ubuntu_vm_default_password: P@ssw0rd
+ubuntu_vm_user_data: ""
+vm_hostname: "{{ vm_name }}"
+vm_additional_user: minioadmin
+vm_additional_user_password: MinIO1!
+vm_authorized_ssh_keys: []
+vm_ip_address: ""
+vm_prefix_length: ""
+vm_default_gateway: ""
+vm_search_domains: []
+vm_dns_servers: []
+minio_data_disk_size_gb: ""
+minio_server_datadir: /minio-data
+minio_server_data_filesystem_disk: /dev/sdb
+minio_server_data_filesystem_type: xfs
+
+# IMPORTANT NOTE: USE THE redeploy_vm PARAMETER WITH CAUTION! THE VM(S) WILL BE DELETED AND REDEPLOYED WHEN SET TO true.
+redeploy_vm: false

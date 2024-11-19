@@ -1,0 +1,55 @@
+# vSphere variables
+vcenter_hostname: vcsa.cloudnativeapps.cloud
+vcenter_username: vcadmin@cloudnativeapps.cloud
+vcenter_password: YourP@ssw0rd
+
+vsphere_datecenter: Demo-Datacenter
+vsphere_cluster: Demo-Cluster
+vsphere_resource_pool: Resources
+vsphere_datastore: vsanDatastore
+vsphere_network: demo-k8s
+vsphere_vm_folder: "/{{ vsphere_datecenter }}/vm/minio"
+
+# VM variables
+ubuntu_ova_download_url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.ova
+vm_name: demo-minio
+vm_additional_user: minioadmin
+vm_additional_user_password: MinIO1!
+vm_disk_provisioning: thin
+vm_os_disk_size_gb: 50
+vm_num_cpus: 2
+vm_memory_mb: 8192
+
+# Note: the authorized ssh keys must contain the SSH key of the machine where the playbook is executed, so it can connect to the MinIO Server node
+vm_authorized_ssh_keys:
+  - ssh-rsa AAAAB3NzaC1y...
+
+vm_ip_address: 10.100.152.13
+vm_prefix_length: 24
+vm_default_gateway: 10.100.152.1
+vm_search_domains:
+  - terasky.demo
+
+vm_dns_servers:
+  - 10.100.100.100
+
+# MinIO server config
+minio_root_user: admin
+minio_root_password: MinIO1!@#
+minio_data_disk_size_gb: 100
+minio_server_datadir: /minio-data
+minio_server_data_filesystem_disk: /dev/sdb
+minio_server_data_filesystem_type: xfs
+minio_alias: minio
+
+# MinIO buckets and users
+minio_buckets:
+  - name: k8s-backup
+    policy: read-write
+
+minio_users:
+- name: k8s-backup
+  password: Kubernetes1!
+  buckets_acl:
+    - name: k8s-backup
+      policy: read-write
